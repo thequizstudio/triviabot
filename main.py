@@ -48,13 +48,19 @@ async def load_spotify_songs():
 
 
 async def start_music_round():
-    channel = bot.get_channel(MUSIC_TEXT_CHANNEL)
-    vc_channel = bot.get_channel(MUSIC_VOICE_CHANNEL)
-
-    if not channel:
-        print("❌ Text channel not found. Cannot send messages.")
+    try:
+        channel = await bot.fetch_channel(MUSIC_TEXT_CHANNEL)
+    except discord.NotFound:
+        print("❌ Text channel not found via fetch_channel.")
+        return
+    except discord.Forbidden:
+        print("❌ No permission to fetch the text channel.")
+        return
+    except Exception as e:
+        print(f"❌ Unexpected error fetching text channel: {e}")
         return
 
+    vc_channel = bot.get_channel(MUSIC_VOICE_CHANNEL)
     if not vc_channel:
         await channel.send("❌ Voice channel not found.")
         return
