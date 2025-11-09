@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CLIENT_ID = os.getenv("c1a3ab75af9a4fa8884026aee9ee3001")
-CLIENT_SECRET = os.getenv("2e7ff57069434c77a78b06c12b7059f2")
+CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
+CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 
 class SpotifyAPI:
