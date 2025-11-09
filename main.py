@@ -51,6 +51,10 @@ async def start_music_round():
     channel = bot.get_channel(MUSIC_TEXT_CHANNEL)
     vc_channel = bot.get_channel(MUSIC_VOICE_CHANNEL)
 
+    if not channel:
+        print("❌ Text channel not found. Cannot send messages.")
+        return
+
     if not vc_channel:
         await channel.send("❌ Voice channel not found.")
         return
