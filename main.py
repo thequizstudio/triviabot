@@ -9,13 +9,13 @@ from rapidfuzz import fuzz
 import yt_dlp
 
 LEADERBOARD_FILE = "leaderboard.json"
-QUESTIONS_FILE = "songs.json"  # renamed JSON file
+QUESTIONS_FILE = "songs.json"
 
 NUMBER_OF_QUESTIONS_PER_ROUND = 10
-DELAY_BETWEEN_ROUNDS = 30  # seconds between rounds
-ANSWER_TIMEOUT = 10  # seconds to answer each question
-PREVIEW_DURATION = 12  # now 12 seconds playback
-FUZZ_THRESHOLD = 85  # rapidfuzz ratio threshold for accepting an answer
+DELAY_BETWEEN_ROUNDS = 30
+ANSWER_TIMEOUT = 12
+PREVIEW_DURATION = 12
+FUZZ_THRESHOLD = 85
 
 def load_questions():
     try:
@@ -73,7 +73,7 @@ def get_category_from_question(question_text):
 def get_round_categories(questions_list):
     return [get_category_from_question(q["question"]) for q in questions_list]
 
-# Updated yt-dlp audio extraction to get url and duration
+# yt-dlp audio extraction for a single url
 def get_audio_info(yt_url):
     ydl_opts = {
         "format": "bestaudio/best",
@@ -84,8 +84,50 @@ def get_audio_info(yt_url):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(yt_url, download=False)
         audio_url = info.get("url")
-        duration = info.get("duration")  # duration in seconds (int)
+        duration = info.get("duration")
         return audio_url, duration
+
+# Pre-validate and prepare playable questions
+async def validate_and_prepare_questions(sampled_questions):
+    prepared_questions = []
+    pool = [q for q in questions if q not in sampled_questions]
+    used_questions = set()
+
+    for q in sampled_questions:
+        playable = False
+        attempt_q = q
+        attempts = 0
+
+        while not playable and attempts < 5:
+            try:
+                audio_url, duration = get_audio_info(attempt_q["url"])
+                if audio_url and duration and duration > PREVIEW_DURATION:
+                    # Attach audio info for use later
+                    attempt_q = dict(attempt_q)  # copy to avoid mutating original
+                    attempt_q["audio_url"] = audio_url
+                    attempt_q["duration"] = duration
+                    prepared_questions.append(attempt_q)
+                    playable = True
+                    used_questions.add(attempt_q["question"])
+                else:
+                    raise Exception("No valid audio URL or too short duration")
+            except Exception:
+                attempts += 1
+                # Pick a replacement question not already used or in prepared_questions
+                replacements = [q for q in pool if q["question"] not in used_questions]
+                if replacements:
+                    attempt_q = replacements.pop(random.randint(0, len(replacements)-1))
+                    pool.remove(attempt_q)
+                else:
+                    # No replacements left, accept current question anyway (won't break bot)
+                    attempt_q = q
+                    attempt_q["audio_url"] = None
+                    attempt_q["duration"] = 0
+                    prepared_questions.append(attempt_q)
+                    playable = True
+                    used_questions.add(attempt_q["question"])
+
+    return prepared_questions
 
 async def play_preview(vc, audio_url, offset, duration=PREVIEW_DURATION):
     source = discord.FFmpegPCMAudio(
@@ -127,7 +169,8 @@ async def start_new_round(guild):
     answered_this_round = set()
     accepting_answers = False
 
-    current_round_questions = random.sample(questions, min(NUMBER_OF_QUESTIONS_PER_ROUND, len(questions)))
+    sampled = random.sample(questions, min(NUMBER_OF_QUESTIONS_PER_ROUND, len(questions)))
+    current_round_questions = await validate_and_prepare_questions(sampled)
 
     categories = get_round_categories(current_round_questions)
     await send_embed(text_channel, "\n".join(categories), title="🎯 Next Round Preview")
@@ -143,7 +186,7 @@ async def start_new_round(guild):
             vc = await voice_channel.connect()
     except Exception as e:
         await send_embed(text_channel, f"⚠️ Could not connect to voice channel: {e}", title="Connection Error")
-        vc = None  # allow quiz to proceed text-only
+        vc = None
 
     for index, q in enumerate(current_round_questions, start=1):
         await ask_single_question(text_channel, index, q, vc)
@@ -162,19 +205,18 @@ async def ask_single_question(channel, index, q, vc):
 
     await send_embed(channel, f"**Question {index}:**\n{current_question}")
 
-    if vc:
+    if vc and q.get("audio_url"):
         try:
-            audio_url, duration = get_audio_info(q["url"])
-            if not audio_url:
-                await send_embed(channel, "⚠️ Could not extract audio for this track (maybe blocked).", title="Playback Error")
-            else:
-                offset = int(duration * 0.2) if duration else 0
-                max_offset = duration - PREVIEW_DURATION if duration else 0
-                if offset > max_offset:
-                    offset = max(0, max_offset)
-                await play_preview(vc, audio_url, offset=offset, duration=PREVIEW_DURATION)
+            audio_url = q["audio_url"]
+            duration = q["duration"]
+            offset = int(duration * 0.2) if duration else 0
+            max_offset = duration - PREVIEW_DURATION if duration else 0
+            if offset > max_offset:
+                offset = max(0, max_offset)
+            await play_preview(vc, audio_url, offset=offset, duration=PREVIEW_DURATION)
         except Exception as e:
-            await send_embed(channel, f"⚠️ Error playing track: {e}", title="Playback Error")
+            # Just silently skip playback errors here (should be rare due to pre-validation)
+            pass
 
     try:
         await asyncio.sleep(ANSWER_TIMEOUT)
