@@ -21,14 +21,10 @@ fastest_answered = False
 
 spotify = SpotifyAPI()
 
+
 async def load_spotify_songs():
     print(f"Fetching tracks from Spotify playlist {SPOTIFY_PLAYLIST_ID}...")
-    try:
-        items = await spotify.get_playlist_tracks(SPOTIFY_PLAYLIST_ID, limit=100)
-    except Exception as e:
-        print(f"Error fetching playlist: {e}")
-        return []
-
+    items = await spotify.get_playlist_tracks(SPOTIFY_PLAYLIST_ID, limit=100)
     tracks = []
     for item in items:
         track = item.get("track")
@@ -48,6 +44,7 @@ async def load_spotify_songs():
     print(f"Loaded {len(tracks)} previewable tracks from Spotify.")
     return tracks
 
+
 async def start_music_round():
     try:
         channel = await bot.fetch_channel(MUSIC_TEXT_CHANNEL)
@@ -66,15 +63,7 @@ async def start_music_round():
         await channel.send("❌ Voice channel not found.")
         return
 
-    try:
-        vc = await vc_channel.connect()
-    except discord.ClientException:
-        # Already connected, try to get current voice client
-        vc = discord.utils.get(bot.voice_clients, guild=vc_channel.guild)
-        if vc is None:
-            await channel.send("❌ Failed to connect to voice channel.")
-            return
-
+    vc = await vc_channel.connect()
     await channel.send("🎶 **Welcome to Music Trivia!** Guess the song title as fast as you can!")
 
     songs = await load_spotify_songs()
@@ -109,12 +98,14 @@ async def start_music_round():
     await show_leaderboard(channel)
     await channel.send("🎵 Round complete! Type `!music` to start another game.")
 
+
 @bot.event
 async def on_ready():
     print(f"{bot.user} is live as the Music Trivia Bot 🎵")
-    # Auto-start on bot ready:
-    # Run in background task so on_ready doesn’t block event loop
+    # Initialize SpotifyAPI's aiohttp session now
+    await spotify.init_session()
     bot.loop.create_task(start_music_round())
+
 
 @bot.event
 async def on_message(message):
@@ -145,6 +136,7 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
+
 async def show_leaderboard(channel):
     if not scores:
         await channel.send("No correct answers this round.")
@@ -156,14 +148,25 @@ async def show_leaderboard(channel):
     )
     await channel.send(f"🏆 **Final Leaderboard:**\n{leaderboard}")
 
+
 @bot.command(name="music")
 async def manual_start(ctx):
     await ctx.send("🎧 Starting a new music trivia round!")
     await start_music_round()
 
-@bot.event
-async def on_disconnect():
-    # Close aiohttp session cleanly on shutdown
+
+async def on_shutdown():
     await spotify.close()
+
+import signal
+
+def shutdown():
+    loop = asyncio.get_event_loop()
+    loop.create_task(on_shutdown())
+
+loop = asyncio.get_event_loop()
+loop.add_signal_handler(signal.SIGTERM, shutdown)
+loop.add_signal_handler(signal.SIGINT, shutdown)
+
 
 bot.run(TOKEN)
