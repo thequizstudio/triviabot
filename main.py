@@ -1,163 +1,113 @@
 import discord
-from discord.ext import commands
 import asyncio
-import random
-import os
-from rapidfuzz import fuzz
-import subprocess
+import yt_dlp
 import json
+import random
+from discord.ext import commands
 
-# Load environment variables
-TOKEN = os.getenv("DISCORD_TOKEN")
-MUSIC_TEXT_CHANNEL = int(os.getenv("MUSIC_TEXT_CHANNEL"))
-MUSIC_VOICE_CHANNEL = int(os.getenv("MUSIC_VOICE_CHANNEL"))
-SONGS_JSON_PATH = "songs.json"  # your local JSON database of songs
-
-intents = discord.Intents.all()
+# ---- BOT CONFIG ----
+intents = discord.Intents.default()
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-scores = {}
-current_song = None
-answer_found = False
-fastest_answered = False
-
-# Detect ffmpeg path dynamically
-def get_ffmpeg_path():
+# ---- LOAD QUESTIONS ----
+def load_questions():
     try:
-        path = subprocess.check_output(["which", "ffmpeg"]).decode().strip()
-        print(f"Using ffmpeg executable at: {path}")
-        return path
-    except Exception as e:
-        print(f"Could not find ffmpeg executable, falling back to 'ffmpeg': {e}")
-        return "ffmpeg"
-
-FFMPEG_PATH = get_ffmpeg_path()
-
-
-async def load_songs_from_json():
-    try:
-        with open(SONGS_JSON_PATH, "r", encoding="utf-8") as f:
-            songs = json.load(f)
-            print(f"Loaded {len(songs)} tracks from {SONGS_JSON_PATH}.")
-            return songs
-    except Exception as e:
-        print(f"Failed to load songs from JSON: {e}")
+        with open("music_questions.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print("❌ Error: music_questions.json not found!")
+        return []
+    except json.JSONDecodeError:
+        print("❌ Error: JSON file is invalid!")
         return []
 
+questions = load_questions()
 
-async def start_music_round():
-    try:
-        channel = await bot.fetch_channel(MUSIC_TEXT_CHANNEL)
-    except discord.NotFound:
-        print("❌ Text channel not found via fetch_channel.")
+# ---- YOUTUBE AUDIO FETCH ----
+def get_audio_url(yt_url):
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "quiet": True,
+        "skip_download": True,
+        "no_warnings": True
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(yt_url, download=False)
+        return info["url"]
+
+# ---- AUDIO PLAYBACK ----
+async def play_preview(vc, audio_url, duration=7):
+    """Play a short audio preview."""
+    source = discord.FFmpegPCMAudio(
+        audio_url,
+        before_options=f"-ss 0 -t {duration}",
+        options="-vn"
+    )
+    vc.play(source)
+    while vc.is_playing():
+        await asyncio.sleep(0.5)
+
+# ---- QUIZ COMMAND ----
+@bot.command()
+async def quiz(ctx):
+    """Start a 10-question music quiz."""
+    if not ctx.author.voice:
+        await ctx.send("🎧 You need to join a voice channel first!")
         return
-    except discord.Forbidden:
-        print("❌ No permission to fetch the text channel.")
-        return
-    except Exception as e:
-        print(f"❌ Unexpected error fetching text channel: {e}")
-        return
 
-    vc_channel = bot.get_channel(MUSIC_VOICE_CHANNEL)
-    if not vc_channel:
-        await channel.send("❌ Voice channel not found.")
-        return
+    channel = ctx.author.voice.channel
+    vc = await channel.connect()
 
-    try:
-        vc = await vc_channel.connect()
-    except Exception as e:
-        await channel.send(f"❌ Failed to connect to voice channel: {e}")
-        return
+    score = {}
+    random.shuffle(questions)
+    total_questions = min(10, len(questions))
 
-    await channel.send("🎶 **Welcome to Music Trivia!** Guess the song title as fast as you can!")
+    await ctx.send(f"🎵 Starting a {total_questions}-question music quiz!")
 
-    songs = await load_songs_from_json()
-    if len(songs) < 10:
-        await channel.send("⚠️ Not enough tracks in the JSON file!")
-        await vc.disconnect()
-        return
+    for i, q in enumerate(questions[:total_questions], start=1):
+        await ctx.send(f"**Question {i}/{total_questions}**\n{q['question']}")
 
-    random.shuffle(songs)
+        try:
+            audio_url = get_audio_url(q["url"])
+            await play_preview(vc, audio_url)
+        except Exception as e:
+            await ctx.send(f"⚠️ Error playing track: {e}")
+            continue
 
-    global current_song, answer_found, fastest_answered
+        def check(m):
+            return m.channel == ctx.channel and not m.author.bot
 
-    for i, song in enumerate(songs[:10], 1):
-        current_song, answer_found, fastest_answered = song, False, False
+        try:
+            msg = await bot.wait_for("message", timeout=10.0, check=check)
+        except asyncio.TimeoutError:
+            await ctx.send(f"⏰ Time’s up! The answer was **{q['answer']}**")
+            await asyncio.sleep(2)
+            continue
 
-        await channel.send(f"▶️ **Song {i}/10** — listen carefully!")
-        vc.play(
-            discord.FFmpegPCMAudio(
-                song["preview_url"],
-                executable=FFMPEG_PATH,
-                before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-                options="-vn"
-            )
+        if msg.content.lower().strip() == q["answer"].lower().strip():
+            score[msg.author] = score.get(msg.author, 0) + 10
+            await ctx.send(f"✅ Correct, {msg.author.display_name}! (+10 points)")
+        else:
+            await ctx.send(f"❌ Nope — the correct answer was **{q['answer']}**")
+
+        await asyncio.sleep(3)
+
+    if score:
+        leaderboard = "\n".join(
+            [f"{user.display_name}: {points}" for user, points in sorted(score.items(), key=lambda x: x[1], reverse=True)]
         )
-        await asyncio.sleep(10)  # play 10-second preview
-        vc.stop()
-
-        if not answer_found:
-            await channel.send(f"⏰ Time's up! The answer was **{song['title']}** by *{song['artist']}*.")
-        await asyncio.sleep(6)
+        await ctx.send(f"🏁 **Final Leaderboard:**\n{leaderboard}")
+    else:
+        await ctx.send("😅 No one scored this round!")
 
     await vc.disconnect()
-    await show_leaderboard(channel)
-    await channel.send("🎵 Round complete! Type `!music` to start another game.")
 
-
+# ---- ON READY ----
 @bot.event
 async def on_ready():
-    print(f"{bot.user} is live as the Music Trivia Bot 🎵")
-    # Auto-start on bot ready:
-    await start_music_round()
+    print(f"✅ Logged in as {bot.user}")
+    print("🎶 Music trivia bot is ready.")
 
-
-@bot.event
-async def on_message(message):
-    global answer_found, fastest_answered
-
-    if message.author.bot or message.channel.id != MUSIC_TEXT_CHANNEL:
-        return
-
-    if current_song and not answer_found:
-        guess = message.content.lower()
-        correct = current_song["answer"].lower()
-        ratio = fuzz.partial_ratio(guess, correct)
-        if ratio >= 80:
-            answer_found = True
-            user = message.author
-
-            if not fastest_answered:
-                fastest_answered = True
-                scores[user] = scores.get(user, 0) + 15  # 10 pts + 5 bonus
-                await message.channel.send(
-                    f"⚡ {user.mention} got it first! **{current_song['title']}** (+15 pts)"
-                )
-            else:
-                scores[user] = scores.get(user, 0) + 10
-                await message.channel.send(
-                    f"✅ {user.mention} got it! **{current_song['title']}** (+10 pts)"
-                )
-
-    await bot.process_commands(message)
-
-
-async def show_leaderboard(channel):
-    if not scores:
-        await channel.send("No correct answers this round.")
-        return
-
-    sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-    leaderboard = "\n".join(
-        [f"**{i+1}. {user.display_name}** — {points} pts" for i, (user, points) in enumerate(sorted_scores)]
-    )
-    await channel.send(f"🏆 **Final Leaderboard:**\n{leaderboard}")
-
-
-@bot.command(name="music")
-async def manual_start(ctx):
-    await ctx.send("🎧 Starting a new music trivia round!")
-    await start_music_round()
-
-
-bot.run(TOKEN)
+# ---- START BOT ----
+bot.run("YOUR_DISCORD_BOT_TOKEN")
