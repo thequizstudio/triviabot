@@ -1,74 +1,62 @@
 [
   {
-    "artist": "Queen",
-    "title": "Bohemian Rhapsody",
-    "preview_url": "https://open.spotify.com/track/5KjdQIrQD3UBJNZfx5Qp1v?si=d66b1b44a5cb4eec",
-    "answer": "Bohemian Rhapsody"
+    "question": "MUSIC 🎧\n\nGuess the song from this clip:",
+    "answer": "Never Gonna Give You Up",
+    "url": "https://music.youtube.com/watch?v=dQw4w9WgXcQ"
   },
   {
-    "artist": "Michael Jackson",
-    "title": "Billie Jean",
-    "preview_url": "https://open.spotify.com/track/5KjdQIrQD3UBJNZfx5Qp1v?si=d66b1b44a5cb4eec",
-    "answer": "Billie Jean"
+    "question": "MUSIC 🎧\n\nName this 80s pop hit:",
+    "answer": "Billie Jean",
+    "url": "https://music.youtube.com/watch?v=Zi_XLOBDo_Y"
   },
   {
-    "artist": "Daft Punk",
-    "title": "Get Lucky",
-    "preview_url": "https://open.spotify.com/track/5KjdQIrQD3UBJNZfx5Qp1v?si=d66b1b44a5cb4eec",
-    "answer": "Get Lucky"
+    "question": "MUSIC 🎧\n\nWhich song is this?",
+    "answer": "Bohemian Rhapsody",
+    "url": "https://music.youtube.com/watch?v=fJ9rUzIMcZQ"
   },
   {
-    "artist": "The Beatles",
-    "title": "Let It Be",
-    "preview_url": "https://p.scdn.co/mp3-preview/681a81e582c5d8a4d7050f66f1cb82f7bcdf76a8?cid=774b29d4f13844c495f206cafdad9c86",
-    "answer": "Let It Be"
+    "question": "MUSIC 🎧\n\nIdentify the track:",
+    "answer": "Smells Like Teen Spirit",
+    "url": "https://music.youtube.com/watch?v=hTWKbfoikeg"
   },
   {
-    "artist": "Adele",
-    "title": "Rolling in the Deep",
-    "preview_url": "https://p.scdn.co/mp3-preview/4ea48d7f41b2679b7c48434922dca9002a395418?cid=774b29d4f13844c495f206cafdad9c86",
-    "answer": "Rolling in the Deep"
+    "question": "MUSIC 🎧\n\nWhat’s the name of this classic rock song?",
+    "answer": "Hotel California",
+    "url": "https://music.youtube.com/watch?v=EqPtz5qN7HM"
   },
   {
-    "artist": "Ed Sheeran",
-    "title": "Shape of You",
-    "preview_url": "https://p.scdn.co/mp3-preview/6f9c6b68bc0b2f64e9a745c66a1e8f7d198da6f8?cid=774b29d4f13844c495f206cafdad9c86",
-    "answer": "Shape of You"
+    "question": "MUSIC 🎧\n\nGuess the track from this snippet:",
+    "answer": "Shape of You",
+    "url": "https://music.youtube.com/watch?v=JGwWNGJdvx8"
   },
   {
-    "artist": "Coldplay",
-    "title": "Yellow",
-    "preview_url": "https://p.scdn.co/mp3-preview/9a8a9122e32e4a1a289df8677f18e88332c3a4f2?cid=774b29d4f13844c495f206cafdad9c86",
-    "answer": "Yellow"
+    "question": "MUSIC 🎧\n\nWhich song is this modern pop smash?",
+    "answer": "Blinding Lights",
+    "url": "https://music.youtube.com/watch?v=fHI8X4OXluQ"
   },
   {
-    "artist": "Bruno Mars",
-    "title": "Uptown Funk",
-    "preview_url": "https://p.scdn.co/mp3-preview/7d3f063a69f6a83f88dcb72af81a5de93f632de0?cid=774b29d4f13844c495f206cafdad9c86",
-    "answer": "Uptown Funk"
+    "question": "MUSIC 🎧\n\nName this hit from the 90s:",
+    "answer": "Wonderwall",
+    "url": "https://music.youtube.com/watch?v=6hzrDeceEKc"
   },
   {
-    "artist": "Nirvana",
-    "title": "Smells Like Teen Spirit",
-    "preview_url": "https://p.scdn.co/mp3-preview/7e7f8d72007e9a9bca90c97801b8e21b07f8d2aa?cid=774b29d4f13844c495f206cafdad9c86",
-    "answer": "Smells Like Teen Spirit"
+    "question": "MUSIC 🎧\n\nWhat’s the name of this dance track?",
+    "answer": "Titanium",
+    "url": "https://music.youtube.com/watch?v=JRfuAukYTKg"
   },
   {
-    "artist": "Lady Gaga",
-    "title": "Poker Face",
-    "preview_url": "https://p.scdn.co/mp3-preview/ed4f531f511739fbb4f732a1a2e458b01973c110?cid=774b29d4f13844c495f206cafdad9c86",
-    "answer": "Poker Face"
+    "question": "MUSIC 🎧\n\nIdentify this pop-rock song:",
+    "answer": "Uptown Funk",
+    "url": "https://music.youtube.com/watch?v=OPf0YbXqDm0"
   },
   {
-    "artist": "Maroon 5",
-    "title": "Sugar",
-    "preview_url": "https://p.scdn.co/mp3-preview/869c4621c81555a6912e1b370ea987f3130bfb92?cid=774b29d4f13844c495f206cafdad9c86",
-    "answer": "Sugar"
+    "question": "MUSIC 🎧\n\nGuess the classic Motown song:",
+    "answer": "I Heard It Through the Grapevine",
+    "url": "https://music.youtube.com/watch?v=6LAPFM3dgag"
   },
   {
-    "artist": "Imagine Dragons",
-    "title": "Believer",
-    "preview_url": "https://p.scdn.co/mp3-preview/ce5f3ed05368e1f1db0180bc38b2bbdbb3a26f7b?cid=774b29d4f13844c495f206cafdad9c86",
-    "answer": "Believer"
+    "question": "MUSIC 🎧\n\nName this 2000s alternative track:",
+    "answer": "Chasing Cars",
+    "url": "https://music.youtube.com/watch?v=GemKqzILV4w"
   }
 ]
