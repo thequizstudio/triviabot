@@ -49,48 +49,61 @@ async def play_preview(vc, audio_url, duration=7):
     while vc.is_playing():
         await asyncio.sleep(0.5)
 
-# ---- QUIZ COMMAND ----
-@bot.command()
-async def quiz(ctx):
-    """Start a 10-question music quiz."""
-    if not ctx.author.voice:
-        await ctx.send("🎧 You need to join a voice channel first!")
+# ---- QUIZ LOGIC ----
+async def start_quiz(bot):
+    """Automatically start a quiz in the configured text and voice channels."""
+    text_channel_id = os.getenv("MUSIC_TEXT_CHANNEL")
+    voice_channel_id = os.getenv("MUSIC_VOICE_CHANNEL")
+
+    if not text_channel_id or not voice_channel_id:
+        print("❌ Missing MUSIC_TEXT_CHANNEL or MUSIC_VOICE_CHANNEL environment variable.")
         return
 
-    channel = ctx.author.voice.channel
-    vc = await channel.connect()
+    try:
+        text_channel = bot.get_channel(int(text_channel_id))
+        voice_channel = bot.get_channel(int(voice_channel_id))
+    except Exception as e:
+        print(f"❌ Could not access configured channels: {e}")
+        return
+
+    if not text_channel or not voice_channel:
+        print("❌ Invalid text or voice channel IDs. Check your Railway variables.")
+        return
+
+    # Connect to the voice channel
+    vc = await voice_channel.connect()
 
     score = {}
     random.shuffle(questions)
     total_questions = min(10, len(questions))
 
-    await ctx.send(f"🎵 Starting a {total_questions}-question music quiz!")
+    await text_channel.send(f"🎵 Starting a {total_questions}-question music quiz!")
 
     for i, q in enumerate(questions[:total_questions], start=1):
-        await ctx.send(f"**Question {i}/{total_questions}**\n{q['question']}")
+        await text_channel.send(f"**Question {i}/{total_questions}**\n{q['question']}")
 
         try:
             audio_url = get_audio_url(q["url"])
             await play_preview(vc, audio_url)
         except Exception as e:
-            await ctx.send(f"⚠️ Error playing track: {e}")
+            await text_channel.send(f"⚠️ Error playing track: {e}")
             continue
 
         def check(m):
-            return m.channel == ctx.channel and not m.author.bot
+            return m.channel == text_channel and not m.author.bot
 
         try:
             msg = await bot.wait_for("message", timeout=10.0, check=check)
         except asyncio.TimeoutError:
-            await ctx.send(f"⏰ Time’s up! The answer was **{q['answer']}**")
+            await text_channel.send(f"⏰ Time’s up! The answer was **{q['answer']}**")
             await asyncio.sleep(2)
             continue
 
         if msg.content.lower().strip() == q["answer"].lower().strip():
             score[msg.author] = score.get(msg.author, 0) + 10
-            await ctx.send(f"✅ Correct, {msg.author.display_name}! (+10 points)")
+            await text_channel.send(f"✅ Correct, {msg.author.display_name}! (+10 points)")
         else:
-            await ctx.send(f"❌ Nope — the correct answer was **{q['answer']}**")
+            await text_channel.send(f"❌ Nope — the correct answer was **{q['answer']}**")
 
         await asyncio.sleep(3)
 
@@ -98,9 +111,9 @@ async def quiz(ctx):
         leaderboard = "\n".join(
             [f"{user.display_name}: {points}" for user, points in sorted(score.items(), key=lambda x: x[1], reverse=True)]
         )
-        await ctx.send(f"🏁 **Final Leaderboard:**\n{leaderboard}")
+        await text_channel.send(f"🏁 **Final Leaderboard:**\n{leaderboard}")
     else:
-        await ctx.send("😅 No one scored this round!")
+        await text_channel.send("😅 No one scored this round!")
 
     await vc.disconnect()
 
@@ -109,6 +122,10 @@ async def quiz(ctx):
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
     print("🎶 Music trivia bot is ready.")
+
+    # Automatically start the quiz once the bot is ready
+    await asyncio.sleep(3)
+    await start_quiz(bot)
 
 # ---- START BOT (from Railway variable) ----
 token = os.getenv("DISCORD_TOKEN")
