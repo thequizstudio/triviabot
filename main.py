@@ -3,13 +3,12 @@ from discord.ext import commands
 import asyncio
 import random
 import os
+import json
 from rapidfuzz import fuzz
-from spotify_utils import SpotifyAPI
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 MUSIC_TEXT_CHANNEL = int(os.getenv("MUSIC_TEXT_CHANNEL"))
 MUSIC_VOICE_CHANNEL = int(os.getenv("MUSIC_VOICE_CHANNEL"))
-SPOTIFY_PLAYLIST_ID = os.getenv("SPOTIFY_PLAYLIST_ID")
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -19,31 +18,18 @@ current_song = None
 answer_found = False
 fastest_answered = False
 
-spotify = SpotifyAPI()
-
-
-async def load_spotify_songs():
-    print(f"Fetching tracks from Spotify playlist {SPOTIFY_PLAYLIST_ID}...")
-    items = await spotify.get_playlist_tracks(SPOTIFY_PLAYLIST_ID, limit=100)
-    tracks = []
-    for item in items:
-        track = item.get("track")
-        if not track:
-            continue
-        preview_url = track.get("preview_url")
-        if not preview_url:
-            continue  # skip tracks with no preview clip
-
-        tracks.append({
-            "artist": track["artists"][0]["name"],
-            "title": track["name"],
-            "preview_url": preview_url,
-            "answer": track["name"]
-        })
-
-    print(f"Loaded {len(tracks)} previewable tracks from Spotify.")
-    return tracks
-
+async def load_tracks_from_json(filename="songs.json"):
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            tracks = json.load(f)
+        print(f"Loaded {len(tracks)} tracks from {filename}.")
+        return tracks
+    except FileNotFoundError:
+        print(f"❌ JSON file {filename} not found.")
+        return []
+    except Exception as e:
+        print(f"❌ Error loading JSON file: {e}")
+        return []
 
 async def start_music_round():
     try:
@@ -63,12 +49,17 @@ async def start_music_round():
         await channel.send("❌ Voice channel not found.")
         return
 
-    vc = await vc_channel.connect()
+    # Connect to voice channel, check if already connected first
+    if not bot.voice_clients or not any(vc.channel.id == MUSIC_VOICE_CHANNEL for vc in bot.voice_clients):
+        vc = await vc_channel.connect()
+    else:
+        vc = discord.utils.get(bot.voice_clients, channel=vc_channel)
+
     await channel.send("🎶 **Welcome to Music Trivia!** Guess the song title as fast as you can!")
 
-    songs = await load_spotify_songs()
+    songs = await load_tracks_from_json("songs.json")
     if len(songs) < 10:
-        await channel.send("⚠️ Not enough tracks with preview URLs in the playlist!")
+        await channel.send("⚠️ Not enough tracks in the JSON database!")
         await vc.disconnect()
         return
 
@@ -98,14 +89,11 @@ async def start_music_round():
     await show_leaderboard(channel)
     await channel.send("🎵 Round complete! Type `!music` to start another game.")
 
-
 @bot.event
 async def on_ready():
     print(f"{bot.user} is live as the Music Trivia Bot 🎵")
-    # Initialize SpotifyAPI's aiohttp session now
-    await spotify.init_session()
-    bot.loop.create_task(start_music_round())
-
+    # Auto-start on bot ready:
+    await start_music_round()
 
 @bot.event
 async def on_message(message):
@@ -136,7 +124,6 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-
 async def show_leaderboard(channel):
     if not scores:
         await channel.send("No correct answers this round.")
@@ -148,25 +135,9 @@ async def show_leaderboard(channel):
     )
     await channel.send(f"🏆 **Final Leaderboard:**\n{leaderboard}")
 
-
 @bot.command(name="music")
 async def manual_start(ctx):
     await ctx.send("🎧 Starting a new music trivia round!")
     await start_music_round()
-
-
-async def on_shutdown():
-    await spotify.close()
-
-import signal
-
-def shutdown():
-    loop = asyncio.get_event_loop()
-    loop.create_task(on_shutdown())
-
-loop = asyncio.get_event_loop()
-loop.add_signal_handler(signal.SIGTERM, shutdown)
-loop.add_signal_handler(signal.SIGINT, shutdown)
-
 
 bot.run(TOKEN)
