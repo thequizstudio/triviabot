@@ -3,5 +3,5 @@ ffmpeg-python
 python-dotenv
 aiohttp
 rapidfuzz==3.14.3
-yt-dlp
+yt-dlp==2025.10.22
 PyNaCl
