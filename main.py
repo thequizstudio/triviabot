@@ -176,7 +176,7 @@ async def start_new_round(guild):
 
     categories = get_round_categories(current_round_questions)
     await send_embed(text_channel, "\n".join(categories), title="🎯 Next Round Preview")
-    await send_embed(text_channel, f"New round about to begin... ⏱️ {len(current_round_questions)} new questions!", title="🧐 Quiz Starting!")
+    await send_embed(text_channel, f"New round about to begin... ⏱️ {len(current_round_questions)} new questions!\n\n **Make sure you atre connected to the voice channel #music-questions to hear the songs** 🎵", title="🧐 Quiz Starting!")
     await asyncio.sleep(7)
 
     vc = None
