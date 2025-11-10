@@ -9,15 +9,14 @@ from rapidfuzz import fuzz
 import yt_dlp
 
 LEADERBOARD_FILE = "leaderboard.json"
-QUESTIONS_FILE = "songs.json"  # <-- your music questions file
+QUESTIONS_FILE = "songs.json"  # renamed JSON file
 
 NUMBER_OF_QUESTIONS_PER_ROUND = 10
 DELAY_BETWEEN_ROUNDS = 30  # seconds between rounds
 ANSWER_TIMEOUT = 10  # seconds to answer each question
-PREVIEW_DURATION = 7  # seconds of audio to play
+PREVIEW_DURATION = 12  # now 12 seconds playback
 FUZZ_THRESHOLD = 85  # rapidfuzz ratio threshold for accepting an answer
 
-# Load music questions (with "url" field)
 def load_questions():
     try:
         with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
@@ -74,8 +73,8 @@ def get_category_from_question(question_text):
 def get_round_categories(questions_list):
     return [get_category_from_question(q["question"]) for q in questions_list]
 
-# yt-dlp audio extraction
-def get_audio_url(yt_url):
+# Updated yt-dlp audio extraction to get url and duration
+def get_audio_info(yt_url):
     ydl_opts = {
         "format": "bestaudio/best",
         "quiet": True,
@@ -84,11 +83,16 @@ def get_audio_url(yt_url):
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(yt_url, download=False)
-        return info.get("url")
+        audio_url = info.get("url")
+        duration = info.get("duration")  # duration in seconds (int)
+        return audio_url, duration
 
-# Play 7-second preview
-async def play_preview(vc, audio_url, duration=PREVIEW_DURATION):
-    source = discord.FFmpegPCMAudio(audio_url, before_options=f"-ss 0 -t {duration}", options="-vn")
+async def play_preview(vc, audio_url, offset, duration=PREVIEW_DURATION):
+    source = discord.FFmpegPCMAudio(
+        audio_url,
+        before_options=f"-ss {offset} -t {duration}",
+        options="-vn"
+    )
     vc.play(source)
     while vc.is_playing():
         await asyncio.sleep(0.5)
@@ -160,11 +164,15 @@ async def ask_single_question(channel, index, q, vc):
 
     if vc:
         try:
-            audio_url = get_audio_url(q["url"])
+            audio_url, duration = get_audio_info(q["url"])
             if not audio_url:
                 await send_embed(channel, "⚠️ Could not extract audio for this track (maybe blocked).", title="Playback Error")
             else:
-                await play_preview(vc, audio_url, duration=PREVIEW_DURATION)
+                offset = int(duration * 0.2) if duration else 0
+                max_offset = duration - PREVIEW_DURATION if duration else 0
+                if offset > max_offset:
+                    offset = max(0, max_offset)
+                await play_preview(vc, audio_url, offset=offset, duration=PREVIEW_DURATION)
         except Exception as e:
             await send_embed(channel, f"⚠️ Error playing track: {e}", title="Playback Error")
 
